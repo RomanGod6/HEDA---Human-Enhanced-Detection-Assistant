@@ -1,0 +1,48 @@
+{
+  "name": "heda",
+  "private": true,
+  "version": "1.3.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "electron": "electron . --enable-logging",
+    "preview": "vite preview"
+   
+
+  },
+  "author": "Dillon Griffey <griffeydillon1@gmail.com>",
+  "dependencies": {
+    "apexcharts": "^3.41.0",
+    "electron": "^30.0.2",
+    "flatpickr": "^4.6.13",
+    "headlessui": "^0.0.0",
+    "jsvectormap": "^1.5.3",
+    "match-sorter": "^6.3.1",
+    "react": "^18.2.0",
+    "react-apexcharts": "^1.4.1",
+    "react-dom": "^18.2.0",
+    "react-hot-toast": "^2.4.1",
+    "react-icons": "^4.10.1",
+    "react-router-dom": "^6.14.2",
+    "react-toastify": "^9.1.3",
+    "sort-by": "^0.0.2"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.17",
+    "@types/react-dom": "^18.2.7",
+    "@vitejs/plugin-react": "^4.0.3",
+    "autoprefixer": "^10.4.14",
+    "file-loader": "^6.2.0",
+    "postcss": "^8.4.27",
+    "prettier": "^3.0.0",
+    "prettier-plugin-tailwindcss": "^0.4.1",
+    "tailwindcss": "^3.4.1",
+    "vite": "^4.5.3",
+    "webpack": "^5.88.2"
+  },
+  "description": "HEDA: HEDA, short for Human Enhanced Detection Assistant, is a cutting-edge application designed to not just detect cybersecurity threats but to preemptively prevent them. Developed with a focus on real-time threat detection, automated response mechanisms, and user-centric design, HEDA is your ultimate cybersecurity companion. Stay secure, stay defended, stay ahead. Features Real-Time Threat Detection: Utilizes advanced AI algorithms to monitor and analyze network data in real-time, identifying potential threats with unprecedented speed and accuracy. Automated Response Mechanisms: Employs sophisticated strategies to automatically neutralize threats, minimizing the need for manual intervention and enhancing overall security. Behavioral Analytics: Integrates machine learning models to evaluate user behavior patterns, enhancing anomaly detection capabilities and ensuring a more secure environment. Scalability and Performance: Designed to efficiently handle increasing volumes of data and users, ensuring consistent performance even under heavy loads. Cross-Platform Compatibility: Offers a seamless experience across various operating systems and devices, thanks to its development in Electron and React.js. Secure Data Management: Adopts stringent data management practices, including encryption and access control, to protect sensitive information from unauthorized access. User-Friendly Interface: Features an intuitive dashboard and interactive tools, making complex cybersecurity tasks accessible to users of all skill levels. Integration with Existing Systems: Provides APIs and protocols for easy integration with existing cybersecurity infrastructure and third-party applications. ",
+  "main": "main.js",
+  "keywords": [],
+  "license": "ISC"
+}
