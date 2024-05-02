@@ -1,0 +1,2 @@
+## After Cloning:
+* cd into HEDA - Run "npm install": after complete run ---> " npm run dev" and then "npm run electron"
