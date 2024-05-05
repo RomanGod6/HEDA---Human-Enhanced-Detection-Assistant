@@ -1,4 +1,5 @@
 import { app, BrowserWindow } from 'electron';
+import { spawn } from 'child_process'; // Import the spawn function
 
 function createWindow() {
     const mainWindow = new BrowserWindow({
@@ -14,7 +15,26 @@ function createWindow() {
     mainWindow.webContents.openDevTools();
 }
 
-app.whenReady().then(createWindow);
+function runPythonScript() {
+    const pythonProcess = spawn('python', ['./Python/main.py']);
+
+    pythonProcess.stdout.on('data', (data) => {
+        console.log(`stdout: ${data}`);
+    });
+
+    pythonProcess.stderr.on('data', (data) => {
+        console.error(`stderr: ${data}`);
+    });
+
+    pythonProcess.on('close', (code) => {
+        console.log(`Python script exited with code ${code}`);
+    });
+}
+
+app.whenReady().then(() => {
+    createWindow();
+    runPythonScript();
+});
 
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {

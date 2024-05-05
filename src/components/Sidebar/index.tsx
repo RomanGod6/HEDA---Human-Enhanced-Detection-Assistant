@@ -587,7 +587,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }: SidebarProps) => {
                 }}
               </SidebarLinkGroup> */}
 
-              {/* <SidebarLinkGroup
+              <SidebarLinkGroup
                 activeCondition={
                   pathname === '/auth' || pathname.includes('auth')
                 }
@@ -654,12 +654,12 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }: SidebarProps) => {
                           />
                         </svg>
                       </NavLink>
-   
+
                       <div
                         className={`translate transform overflow-hidden ${!open && 'hidden'
                           }`}
                       >
-                        {/* <ul className="mt-4 mb-5.5 flex flex-col gap-2.5 pl-6">
+                        <ul className="mt-4 mb-5.5 flex flex-col gap-2.5 pl-6">
                           <li>
                             <NavLink
                               to="/auth/signin"
@@ -682,14 +682,14 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }: SidebarProps) => {
                               Sign Up
                             </NavLink>
                           </li>
-                        </ul> 
+                        </ul>
                       </div>
 
                     </React.Fragment>
                   );
                 }}
-              </SidebarLinkGroup> 
-              {/* <!-- Menu Item Auth Pages --> */}
+              </SidebarLinkGroup>
+
             </ul>
           </div>
         </nav>
