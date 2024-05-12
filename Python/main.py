@@ -55,7 +55,7 @@ def analyze_packet(packet):
     src_ip, dst_ip, src_port, dst_port, protocol = packet_features(packet)
     
     # Convert deep models prediction to a clear confidence score
-    prediction_label = 'Malicious' if prediction[0][0] > 0.4 else 'Benign'
+    prediction_label = 'Malicious' if prediction[0][0] > 0.8 else 'Benign'
     confidence = float(prediction[0][0])
 
     # Construct packet details string

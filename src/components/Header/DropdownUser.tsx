@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../AuthContext';
 
@@ -6,10 +6,22 @@ const DropdownUser = () => {
   const { user, setIsLoggedIn } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
+
+
   const handleLogout = () => {
     localStorage.removeItem('token');
     setIsLoggedIn(false);
   };
+
+  useEffect(() => {
+    if (user) {
+      console.log("User updated:", user.name, user.avatar);
+
+    }
+  }, [user]);
+
+
+
 
   return (
     <div className="relative">
@@ -18,10 +30,9 @@ const DropdownUser = () => {
           <span className="block text-sm font-medium text-black dark:text-white">
             {user ? user.name : 'Guest'}
           </span>
-          <span className="block text-xs">{user ? user.role : 'No Role'}</span>
         </span>
 
-        <img src={user ? user.avatar : 'Default_Icon.png'} alt="User" className="h-10 w-10 rounded-full" />
+        <img src={user && user.avatar ? user.avatar : '/Default_Icon.png'} alt="User" className="h-10 w-10 rounded-full" />
       </div>
 
       {dropdownOpen && (

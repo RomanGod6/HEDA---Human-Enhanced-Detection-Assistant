@@ -1,27 +1,27 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom'; // Updated to use useNavigate
 import axios from 'axios';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
 import LogoDark from '../../images/logo/logo-dark.svg';
 import Logo from '../../images/logo/logo.svg';
 import DefaultLayout from '../../layout/DefaultLayout';
+import { useAuth } from '../../AuthContext';
 
 const SignIn = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const navigate = useNavigate(); // Replaced useHistory with useNavigate
+  const navigate = useNavigate();
+  const { user, setIsLoggedIn } = useAuth();
 
-  const handleSignIn = async (event) => {
+
+  const handleSignIn = async (event: any) => {
     event.preventDefault();
     try {
-      const response = await axios.post('http://198.244.177.53:5000/login', {
-        email,
-        password
-      });
+      const response = await axios.post('http://198.244.177.53:5000/login', { email, password });
       if (response.data.token) {
-        localStorage.setItem('token', response.data.token); // Save the token to local storage
-        navigate('/'); // Redirect to the dashboard using navigate
+        localStorage.setItem('token', response.data.token);
+        setIsLoggedIn(true)
       }
     } catch (error) {
       setError('Failed to login. Check your email and password.');
@@ -36,11 +36,10 @@ const SignIn = () => {
           <div className="hidden w-full xl:block xl:w-1/2">
             <div className="py-17.5 px-26 text-center">
               <Link className="mb-5.5 inline-block" to="/">
-                <img className="hidden dark:block" src={Logo} alt="Logo" />
-                <img className="dark:hidden" src={LogoDark} alt="Logo" />
+                <img className="hidden dark:block" src="/heda-logo.png" alt="Logo" />
               </Link>
               <p className="2xl:px-20">
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit suspendisse.
+                Your next-generation tool for real-time cybersecurity defense.
               </p>
             </div>
           </div>
@@ -48,7 +47,7 @@ const SignIn = () => {
             <div className="w-full p-4 sm:p-12.5 xl:p-17.5">
               <span className="mb-1.5 block font-medium">Start for free</span>
               <h2 className="mb-9 text-2xl font-bold text-black dark:text-white sm:text-title-xl2">
-                Sign In to TailAdmin
+                Sign In to HEDA
               </h2>
               <form onSubmit={handleSignIn}>
                 <div className="mb-4">

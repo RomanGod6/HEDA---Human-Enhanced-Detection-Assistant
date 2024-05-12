@@ -35,12 +35,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                     if (decoded.exp * 1000 > Date.now()) {
                         setIsLoggedIn(true);
                         setUser({
-                            name: decoded.username,
+                            name: decoded.name,
                             role: decoded.role,
                             avatar: decoded.avatar,
+
                         });
+                        console.log(user)
                     } else {
-                        throw new Error("Token expired");
+                        throw new Error("Please Log In To Continue");
                     }
                 } catch (error) {
                     console.error('Token verification failed:', error);
@@ -52,6 +54,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         verifyToken();
     }, []);
+
+    // useEffect(() => {
+    //     if (!isLoggedIn) {
+    //         setUser(null);
+    //     }
+    // }, [isLoggedIn]);
 
     return (
         <AuthContext.Provider value={{ isLoggedIn, user, setIsLoggedIn, setUser }}>
