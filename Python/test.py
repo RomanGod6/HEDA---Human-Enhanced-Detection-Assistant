@@ -1,26 +1,41 @@
-def hex_to_readable_string(hex_str):
-    try:
-        # Convert hex string to bytes
-        bytes_object = bytes.fromhex(hex_str)
+from scapy.all import *
 
-        # Attempt to decode using various encodings
-        encodings = ['utf-8', 'latin1', 'ascii']
-        for encoding in encodings:
-            try:
-                readable_string = bytes_object.decode(encoding)
-                return readable_string
-            except UnicodeDecodeError:
-                continue
+# Function to send SYN Flood packets
+def send_syn_flood():
+    dst_ip = "192.168.1.1"
+    dst_port = 80
+    for _ in range(10):
+        src_port = RandShort()
+        ip = IP(dst=dst_ip)
+        tcp = TCP(sport=src_port, dport=dst_port, flags="S")
+        packet = ip/tcp
+        send(packet)
+        print(f"SYN packet sent to {dst_ip}:{dst_port}")
 
-        # Fallback: Show hexadecimal representation for non-printable characters
-        hex_fallback = ' '.join(f'{b:02x}' for b in bytes_object)
-        return f"Hex fallback: {hex_fallback}"
-    except Exception as e:
-        return f"Error converting hex to string: {e}"
+# Function to send FIN Flood packets
+def send_fin_flood():
+    dst_ip = "192.168.1.1"
+    dst_port = 80
+    for _ in range(10):
+        src_port = RandShort()
+        ip = IP(dst=dst_ip)
+        tcp = TCP(sport=src_port, dport=dst_port, flags="F")
+        packet = ip/tcp
+        send(packet)
+        print(f"FIN packet sent to {dst_ip}:{dst_port}")
 
-# Example usage
-if __name__ == "__main__":
-    hex_str = "b123076c008514464d2d534541524348202a20485454502f312e310d0a484f53543a203233392e3235352e3235352e3235303a313930300d0a4d414e3a2022737364703a646973636f766572220d0a4d583a20310d0a53543a2075726e3a6469616c2d6d756c746973637265656e2d6f72673a736572766963653a6469616c3a310d0a0d0a"
-    
-    readable_string = hex_to_readable_string(hex_str)
-    print(readable_string)
+# Function to send normal HTTP request
+def send_http_request():
+    dst_ip = "192.168.1.1"
+    dst_port = 80
+    ip = IP(dst=dst_ip)
+    tcp = TCP(dport=dst_port, flags="PA")
+    payload = "GET / HTTP/1.1\r\nHost: 192.168.1.1\r\n\r\n"
+    packet = ip/tcp/payload
+    send(packet)
+    print(f"HTTP request sent to {dst_ip}:{dst_port}")
+
+# Sending different types of packets
+send_syn_flood()
+send_fin_flood()
+send_http_request()

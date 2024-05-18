@@ -48,19 +48,23 @@ def init_db():
             payload TEXT,
             packet_details TEXT,
             inter_arrival_time REAL,
-            byte_ratio REAL
+            byte_ratio REAL,
+            sbytes INTEGER,
+            dur REAL,
+            dbytes INTEGER,
+            state TEXT
         )
     ''')
     conn.commit()
     conn.close()
 
-def log_packet(src_ip, dst_ip, src_port, dst_port, protocol, length, flags, payload, packet_details, malicious, confidence, model_output, inter_arrival_time, byte_ratio):
+def log_packet(src_ip, dst_ip, src_port, dst_port, protocol, length, flags, payload, packet_details, malicious, confidence, model_output, inter_arrival_time, byte_ratio, sbytes, dur, dbytes, state):
     conn = sqlite3.connect('network_traffic.db')
     c = conn.cursor()
     c.execute('''
-        INSERT INTO packets (src_ip, dst_ip, src_port, dst_port, protocol, length, flags, payload, packet_details, malicious, confidence, model_output, inter_arrival_time, byte_ratio)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (src_ip, dst_ip, src_port, dst_port, protocol, length, flags, payload, packet_details, malicious, confidence, model_output, inter_arrival_time, byte_ratio))
+        INSERT INTO packets (src_ip, dst_ip, src_port, dst_port, protocol, length, flags, payload, packet_details, malicious, confidence, model_output, inter_arrival_time, byte_ratio, sbytes, dur, dbytes, state)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (src_ip, dst_ip, src_port, dst_port, protocol, length, flags, payload, packet_details, malicious, confidence, model_output, inter_arrival_time, byte_ratio, sbytes, dur, dbytes, state))
     conn.commit()
     conn.close()
 
@@ -94,6 +98,10 @@ def preprocess_packet(packet):
 
     length = len(packet)
     payload = raw(packet[IP].payload).hex() if IP in packet else "N/A"
+
+    # Log additional packet details for inspection
+    print(f"Packet Info: SRC {srcip}:{sport} -> DST {dstip}:{dport} PROTO {proto} LENGTH {length}")
+    print(f"Payload: {payload[:50]}...")  # Log a snippet of the payload for a quick check
 
     # Update flow state
     flow_key = (srcip, sport, dstip, dport, proto)
@@ -139,30 +147,38 @@ def preprocess_packet(packet):
     }])
 
     processed_features = preprocessor.transform(features_df)
-    return processed_features, inter_arrival_time, byte_ratio
+    return processed_features, inter_arrival_time, byte_ratio, dur, sbytes, dbytes, state
+
 
 def analyze_packet(packet):
-    processed_features, inter_arrival_time, byte_ratio = preprocess_packet(packet)
-    is_outlier = iso_forest.predict(processed_features)
-    prediction = deep_model.predict(processed_features)
-    src_ip, dst_ip, src_port, dst_port, protocol, length, flags, payload = packet_features(packet)
-    packet_details = packet.show(dump=True)
-    
-    prediction_label = 'Malicious' if prediction[0][0] > 0.8 else 'Benign'
-    confidence = float(prediction[0][0])
-    malicious = prediction_label == 'Malicious'
+    try:
+        processed_features, inter_arrival_time, byte_ratio, dur, sbytes, dbytes, state = preprocess_packet(packet)
+        is_outlier = iso_forest.predict(processed_features)
+        prediction = deep_model.predict(processed_features)
+        src_ip, dst_ip, src_port, dst_port, protocol, length, flags, payload = packet_features(packet)
+        packet_details = packet.show(dump=True)
+        
+        prediction_label = 'Malicious' if prediction[0][0] > 0.8 else 'Benign'
+        confidence = float(prediction[0][0])
+        malicious = prediction_label == 'Malicious'
 
-    # Log to database
-    log_packet(src_ip, dst_ip, src_port, dst_port, protocol, length, flags, payload, packet_details, malicious, confidence, str(prediction), inter_arrival_time, byte_ratio)
+        # Log to database
+        log_packet(src_ip, dst_ip, src_port, dst_port, protocol, length, flags, payload, packet_details, malicious, confidence, str(prediction), inter_arrival_time, byte_ratio, sbytes, dur, dbytes, state)
 
-    packet_details_output = f"Packet: SRC {src_ip}:{src_port} -> DST {dst_ip}:{dst_port} on PROTO {protocol}\n"
-    packet_details_output += f"Length: {length} Flags: {flags} Payload: {payload}\n"
-    packet_details_output += f"Isolation Forest Outlier: {'Yes' if is_outlier == -1 else 'No'}\n"
-    packet_details_output += f"Deep Learning Prediction: {prediction_label} with confidence {confidence:.2f}\n"
-    packet_details_output += f"Packet Details: {packet_details}\n"
-    packet_details_output += f"Inter Arrival Time: {inter_arrival_time}\n"
-    packet_details_output += f"Byte Ratio: {byte_ratio}\n"
-    print(packet_details_output, end="", flush=True)
+        packet_details_output = f"Packet: SRC {src_ip}:{src_port} -> DST {dst_ip}:{dst_port} on PROTO {protocol}\n"
+        packet_details_output += f"Length: {length} Flags: {flags} Payload: {payload}\n"
+        packet_details_output += f"Isolation Forest Outlier: {'Yes' if is_outlier == -1 else 'No'}\n"
+        packet_details_output += f"Deep Learning Prediction: {prediction_label} with confidence {confidence:.2f}\n"
+        packet_details_output += f"Packet Details: {packet_details}\n"
+        packet_details_output += f"Inter Arrival Time: {inter_arrival_time}\n"
+        packet_details_output += f"Byte Ratio: {byte_ratio}\n"
+        packet_details_output += f"Duration: {dur}\n"
+        packet_details_output += f"SBytes: {sbytes}\n"
+        packet_details_output += f"DBytes: {dbytes}\n"
+        packet_details_output += f"State: {state}\n"
+        print(packet_details_output, end="", flush=True)
+    except Exception as e:
+        print(f"Error analyzing packet: {e}")
 
 def packet_features(packet):
     src_ip = packet[IP].src if IP in packet else "N/A"
