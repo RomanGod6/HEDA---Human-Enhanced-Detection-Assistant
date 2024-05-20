@@ -9,6 +9,8 @@ import sys
 import sqlite3
 import datetime
 from collections import defaultdict
+import signal
+
 
 # Load the preprocessor and models
 sys.stdout.reconfigure(encoding='utf-8')
@@ -32,7 +34,7 @@ def init_db():
     c = conn.cursor()
     # Create table if it doesn't exist
     c.execute('''
-        CREATE TABLE IF NOT EXISTS packets (
+        CREATE TABLE IF NOT EXISTS firewall_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             src_ip TEXT,
             dst_ip TEXT,
@@ -52,21 +54,25 @@ def init_db():
             sbytes INTEGER,
             dur REAL,
             dbytes INTEGER,
-            state TEXT
+            state TEXT,
+            sttl INTEGER,
+            dttl INTEGER,
+            service TEXT
         )
     ''')
     conn.commit()
     conn.close()
 
-def log_packet(src_ip, dst_ip, src_port, dst_port, protocol, length, flags, payload, packet_details, malicious, confidence, model_output, inter_arrival_time, byte_ratio, sbytes, dur, dbytes, state):
+def log_packet(src_ip, dst_ip, src_port, dst_port, protocol, length, flags, payload, packet_details, malicious, confidence, model_output, inter_arrival_time, byte_ratio, sbytes, dur, dbytes, state, sttl, dttl, service):
     conn = sqlite3.connect('network_traffic.db')
     c = conn.cursor()
     c.execute('''
-        INSERT INTO packets (src_ip, dst_ip, src_port, dst_port, protocol, length, flags, payload, packet_details, malicious, confidence, model_output, inter_arrival_time, byte_ratio, sbytes, dur, dbytes, state)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (src_ip, dst_ip, src_port, dst_port, protocol, length, flags, payload, packet_details, malicious, confidence, model_output, inter_arrival_time, byte_ratio, sbytes, dur, dbytes, state))
+        INSERT INTO firewall_logs (src_ip, dst_ip, src_port, dst_port, protocol, length, flags, payload, packet_details, malicious, confidence, model_output, inter_arrival_time, byte_ratio, sbytes, dur, dbytes, state, sttl, dttl, service)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (src_ip, dst_ip, src_port, dst_port, protocol, length, flags, payload, packet_details, malicious, confidence, model_output, inter_arrival_time, byte_ratio, sbytes, dur, dbytes, state, sttl, dttl, service))
     conn.commit()
     conn.close()
+
 
 # Dictionary to store flow state
 flow_state = defaultdict(lambda: {
@@ -79,12 +85,14 @@ def preprocess_packet(packet):
     srcip, dstip = "0.0.0.0", "0.0.0.0"
     sport, dport, proto = 0, 0, 0
     length, flags, payload, pkt_time = 0, "", "", 0
+    sttl, dttl, service = 0, 0, "N/A"  # Initialize new features
     
     if IP in packet:
         srcip = packet[IP].src
         dstip = packet[IP].dst
         proto = packet[IP].proto
         pkt_time = packet.time
+        sttl = packet[IP].ttl  # Source TTL
         
     if TCP in packet:
         sport = packet[TCP].sport
@@ -99,6 +107,14 @@ def preprocess_packet(packet):
     length = len(packet)
     payload = raw(packet[IP].payload).hex() if IP in packet else "N/A"
 
+    # Determine service based on destination port
+    if dport in [80, 443]:
+        service = "http"
+    elif dport == 53:
+        service = "dns"
+    elif dport == 21:
+        service = "ftp"
+    
     # Log additional packet details for inspection
     print(f"Packet Info: SRC {srcip}:{sport} -> DST {dstip}:{dport} PROTO {proto} LENGTH {length}")
     print(f"Payload: {payload[:50]}...")  # Log a snippet of the payload for a quick check
@@ -136,23 +152,25 @@ def preprocess_packet(packet):
     previous_pkt_length = length
 
     state = flags  # Assuming state refers to TCP flags, update as needed
-    service = "N/A"  # Placeholder, update with logic if applicable
 
     features_df = pd.DataFrame([{
         'srcip': str(srcip), 'sport': int(sport), 'dstip': str(dstip), 
         'dsport': int(dport), 'proto': str(proto), 'length': length, 
         'flags': flags, 'payload': payload, 'pkt_time': pkt_time,
         'inter_arrival_time': inter_arrival_time, 'byte_ratio': byte_ratio,
-        'dur': dur, 'sbytes': sbytes, 'dbytes': dbytes, 'state': state, 'service': service
+        'dur': dur, 'sbytes': sbytes, 'dbytes': dbytes, 'state': state, 'sttl': sttl, 'dttl': dttl, 'service': service
     }])
 
+    # Log the computed values for inspection
+    print(f"Computed values: sbytes={sbytes}, dbytes={dbytes}, state={state}, sttl={sttl}, dttl={dttl}, service={service}")
+
     processed_features = preprocessor.transform(features_df)
-    return processed_features, inter_arrival_time, byte_ratio, dur, sbytes, dbytes, state
+    return processed_features, inter_arrival_time, byte_ratio, dur, sbytes, dbytes, state, sttl, dttl, service
 
 
 def analyze_packet(packet):
     try:
-        processed_features, inter_arrival_time, byte_ratio, dur, sbytes, dbytes, state = preprocess_packet(packet)
+        processed_features, inter_arrival_time, byte_ratio, dur, sbytes, dbytes, state, sttl, dttl, service = preprocess_packet(packet)
         is_outlier = iso_forest.predict(processed_features)
         prediction = deep_model.predict(processed_features)
         src_ip, dst_ip, src_port, dst_port, protocol, length, flags, payload = packet_features(packet)
@@ -163,7 +181,7 @@ def analyze_packet(packet):
         malicious = prediction_label == 'Malicious'
 
         # Log to database
-        log_packet(src_ip, dst_ip, src_port, dst_port, protocol, length, flags, payload, packet_details, malicious, confidence, str(prediction), inter_arrival_time, byte_ratio, sbytes, dur, dbytes, state)
+        log_packet(src_ip, dst_ip, src_port, dst_port, protocol, length, flags, payload, packet_details, malicious, confidence, str(prediction), inter_arrival_time, byte_ratio, sbytes, dur, dbytes, state, sttl, dttl, service)
 
         packet_details_output = f"Packet: SRC {src_ip}:{src_port} -> DST {dst_ip}:{dst_port} on PROTO {protocol}\n"
         packet_details_output += f"Length: {length} Flags: {flags} Payload: {payload}\n"
@@ -176,9 +194,13 @@ def analyze_packet(packet):
         packet_details_output += f"SBytes: {sbytes}\n"
         packet_details_output += f"DBytes: {dbytes}\n"
         packet_details_output += f"State: {state}\n"
+        packet_details_output += f"STTL: {sttl}\n"
+        packet_details_output += f"DTTL: {dttl}\n"
+        packet_details_output += f"Service: {service}\n"
         print(packet_details_output, end="", flush=True)
     except Exception as e:
         print(f"Error analyzing packet: {e}")
+
 
 def packet_features(packet):
     src_ip = packet[IP].src if IP in packet else "N/A"
@@ -214,6 +236,14 @@ def start_traffic_capture():
 
 def start_gui():
     print("GUI would start here. Placeholder function.")
+
+    
+def signal_handler(sig, frame):
+    print('You pressed Ctrl+C! Exiting gracefully...')
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
 
 if __name__ == "__main__":
     print(get_windows_if_list())  # List available interfaces for verification

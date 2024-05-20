@@ -40,7 +40,8 @@ X = data_df.drop('Label', axis=1)
 y = data_df['Label'].astype(int)  # Convert labels to integer if they are not
 
 selected_features = [
-    'srcip', 'sport', 'dstip', 'dsport', 'proto', 'state', 'dur', 'sbytes', 'dbytes'
+    'srcip', 'sport', 'dstip', 'dsport', 'proto', 'state', 'dur', 'sbytes', 'dbytes',
+    'sttl', 'dttl', 'service'
 ]
 
 # Convert IP addresses to strings to ensure proper one-hot encoding
@@ -50,8 +51,8 @@ data_df['dstip'] = data_df['dstip'].astype(str)
 # Updated preprocessor with handle_unknown='ignore' and initial features
 preprocessor = ColumnTransformer(
     transformers=[
-        ('onehot', OneHotEncoder(handle_unknown='ignore'), ['srcip', 'dstip', 'proto', 'state']),
-        ('scaler', StandardScaler(), ['sport', 'dsport', 'dur', 'sbytes', 'dbytes'])
+        ('onehot', OneHotEncoder(handle_unknown='ignore'), ['srcip', 'dstip', 'proto', 'state', 'service']),
+        ('scaler', StandardScaler(), ['sport', 'dsport', 'dur', 'sbytes', 'dbytes', 'sttl', 'dttl'])
     ],
     remainder='passthrough'
 )
