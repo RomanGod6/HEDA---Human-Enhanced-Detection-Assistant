@@ -11,7 +11,6 @@ import datetime
 from collections import defaultdict
 import signal
 
-
 # Load the preprocessor and models
 sys.stdout.reconfigure(encoding='utf-8')
 sys.stderr.reconfigure(encoding='utf-8')
@@ -32,7 +31,7 @@ previous_pkt_length = 0
 def init_db():
     conn = sqlite3.connect('network_traffic.db')
     c = conn.cursor()
-    # Create table if it doesn't exist
+    # Create tables if they don't exist
     c.execute('''
         CREATE TABLE IF NOT EXISTS firewall_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -60,6 +59,16 @@ def init_db():
             service TEXT
         )
     ''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS notifications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            log_id INTEGER,
+            notified BOOLEAN DEFAULT 0,
+            notification_timestamp DATETIME,
+            acknowledged BOOLEAN DEFAULT 0,
+            FOREIGN KEY (log_id) REFERENCES firewall_logs (id)
+        )
+    ''')
     conn.commit()
     conn.close()
 
@@ -71,8 +80,19 @@ def log_packet(src_ip, dst_ip, src_port, dst_port, protocol, length, flags, payl
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (src_ip, dst_ip, src_port, dst_port, protocol, length, flags, payload, packet_details, malicious, confidence, model_output, inter_arrival_time, byte_ratio, sbytes, dur, dbytes, state, sttl, dttl, service))
     conn.commit()
+    log_id = c.lastrowid
     conn.close()
+    return log_id
 
+def log_notification(log_id):
+    conn = sqlite3.connect('network_traffic.db')
+    c = conn.cursor()
+    c.execute('''
+        INSERT INTO notifications (log_id, notified, notification_timestamp, acknowledged)
+        VALUES (?, ?, ?, ?)
+    ''', (log_id, 1, datetime.datetime.now().isoformat(), 0))
+    conn.commit()
+    conn.close()
 
 # Dictionary to store flow state
 flow_state = defaultdict(lambda: {
@@ -167,7 +187,6 @@ def preprocess_packet(packet):
     processed_features = preprocessor.transform(features_df)
     return processed_features, inter_arrival_time, byte_ratio, dur, sbytes, dbytes, state, sttl, dttl, service
 
-
 def analyze_packet(packet):
     try:
         processed_features, inter_arrival_time, byte_ratio, dur, sbytes, dbytes, state, sttl, dttl, service = preprocess_packet(packet)
@@ -176,12 +195,16 @@ def analyze_packet(packet):
         src_ip, dst_ip, src_port, dst_port, protocol, length, flags, payload = packet_features(packet)
         packet_details = packet.show(dump=True)
         
-        prediction_label = 'Malicious' if prediction[0][0] > 0.8 else 'Benign'
+        prediction_label = 'Malicious' if prediction[0][0] > 0.1 else 'Benign'
         confidence = float(prediction[0][0])
         malicious = prediction_label == 'Malicious'
 
         # Log to database
-        log_packet(src_ip, dst_ip, src_port, dst_port, protocol, length, flags, payload, packet_details, malicious, confidence, str(prediction), inter_arrival_time, byte_ratio, sbytes, dur, dbytes, state, sttl, dttl, service)
+        log_id = log_packet(src_ip, dst_ip, src_port, dst_port, protocol, length, flags, payload, packet_details, malicious, confidence, str(prediction), inter_arrival_time, byte_ratio, sbytes, dur, dbytes, state, sttl, dttl, service)
+
+        # Log notification if packet is malicious
+        if malicious:
+            log_notification(log_id)
 
         packet_details_output = f"Packet: SRC {src_ip}:{src_port} -> DST {dst_ip}:{dst_port} on PROTO {protocol}\n"
         packet_details_output += f"Length: {length} Flags: {flags} Payload: {payload}\n"
@@ -200,7 +223,6 @@ def analyze_packet(packet):
         print(packet_details_output, end="", flush=True)
     except Exception as e:
         print(f"Error analyzing packet: {e}")
-
 
 def packet_features(packet):
     src_ip = packet[IP].src if IP in packet else "N/A"
@@ -237,7 +259,6 @@ def start_traffic_capture():
 def start_gui():
     print("GUI would start here. Placeholder function.")
 
-    
 def signal_handler(sig, frame):
     print('You pressed Ctrl+C! Exiting gracefully...')
     sys.exit(0)

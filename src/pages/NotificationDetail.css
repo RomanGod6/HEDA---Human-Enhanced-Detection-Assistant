@@ -1,0 +1,46 @@
+.notification-card {
+    background-color: #2d3748;
+    /* Dark background to match the app theme */
+    color: #fff;
+    /* White text color */
+    padding: 10px;
+    /* Padding inside each notification card */
+    margin-bottom: 5px;
+    /* Space between notification cards */
+    border-radius: 5px;
+    /* Rounded corners */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+    /* Subtle shadow for a modern look */
+    text-decoration: none;
+    /* Remove underline from links */
+    display: block;
+    /* Ensure the link covers the entire card */
+}
+
+.notification-card:hover {
+    background-color: #3c4b5b;
+    /* Slightly lighter background on hover */
+}
+
+.notification-title {
+    font-weight: bold;
+    /* Bold title */
+    margin-bottom: 5px;
+    /* Space between title and details */
+}
+
+.notification-details {
+    font-size: 0.9rem;
+    /* Slightly smaller font size for details */
+}
+
+.alert.alert-info {
+    background-color: #2d3748;
+    /* Match the app's theme */
+    color: #fff;
+    /* White text color */
+    padding: 10px;
+    /* Padding inside the alert */
+    border-radius: 5px;
+    /* Rounded corners */
+}

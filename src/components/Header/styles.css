@@ -1,0 +1,88 @@
+.relative {
+    position: relative;
+}
+
+.flex {
+    display: flex;
+}
+
+.items-center {
+    align-items: center;
+}
+
+.gap-4 {
+    gap: 1rem;
+}
+
+.cursor-pointer {
+    cursor: pointer;
+}
+
+.h-6 {
+    height: 1.5rem;
+}
+
+.w-6 {
+    width: 1.5rem;
+}
+
+.fill-current {
+    fill: currentColor;
+}
+
+.text-white {
+    color: white;
+}
+
+.text-xs {
+    font-size: 0.75rem;
+}
+
+.badge-container {
+    position: relative;
+    display: inline-block;
+}
+
+.badge {
+    position: absolute;
+    top: -20px;
+    right: -15px;
+    color: #f56565;
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+
+.notification-card {
+    background-color: #2d3748;
+    /* Dark background to match the app theme */
+    color: #fff;
+    /* White text color */
+    padding: 10px;
+    /* Padding inside each notification card */
+    margin-bottom: 5px;
+    /* Space between notification cards */
+    border-radius: 5px;
+    /* Rounded corners */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+    /* Subtle shadow for a modern look */
+}
+
+.notification-title {
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.notification-details {
+    font-size: 0.9rem;
+}
+
+.alert.alert-info {
+    background-color: #2d3748;
+    /* Match the app's theme */
+    color: #fff;
+    /* White text color */
+    padding: 10px;
+    /* Padding inside the alert */
+    border-radius: 5px;
+    /* Rounded corners */
+}
