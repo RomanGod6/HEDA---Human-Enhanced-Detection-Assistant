@@ -21,10 +21,13 @@ export interface PacketDetails {
 }
 
 export interface ElectronAPI {
+    fetchFirewallStats: () => Promise<any>;
     fetchNotifications: () => Promise<AppNotification[]>;
-    fetchNotificationById: (id: number) => Promise<AppNotification>; // Add this function
+    fetchNotificationById: (id: number) => Promise<AppNotification>;
+    updateNotificationStatus: (id: number, isMalicious: boolean) => Promise<any>;
     onMaliciousPacket: (callback: (event: any, data: AppNotification) => void) => void;
     removeMaliciousPacketListener: (callback: (event: any, data: AppNotification) => void) => void;
+    updateSettings: (settings: { automaticThreatResponse: boolean; selectedOption: string }) => void; // Add this line
 }
 
 declare global {
@@ -34,4 +37,3 @@ declare global {
 }
 
 export { }; // This ensures the file is treated as a module
-

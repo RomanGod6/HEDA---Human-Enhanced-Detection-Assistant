@@ -390,7 +390,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }: SidebarProps) => {
               </li> */}
               {/* <!-- Menu Item Tables --> */}
 
-              {/* <!-- Menu Item Settings -->
+
               <li>
                 <NavLink
                   to="/settings"

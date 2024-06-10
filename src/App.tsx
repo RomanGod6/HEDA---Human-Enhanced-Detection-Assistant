@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard/Firewall';
 import SignIn from './pages/Authentication/SignIn';
 import SignUp from './pages/Authentication/SignUp';
 import NotificationDetail from './pages/NotificationDetail';
+import Settings from './pages/Settings';
 
 function App() {
   return (
@@ -15,7 +16,8 @@ function App() {
           <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
           <Route path="/auth/signin" element={<PublicRoute><SignIn /></PublicRoute>} />
           <Route path="/auth/signup" element={<PublicRoute><SignUp /></PublicRoute>} />
-          <Route path="/notification/:id" element={<PrivateRoute><NotificationDetail /></PrivateRoute>} /> {/* Add new route */}
+          <Route path="/notification/:id" element={<PrivateRoute><NotificationDetail /></PrivateRoute>} />
+          <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
         </Routes>
       </AuthProvider>
     </Router>

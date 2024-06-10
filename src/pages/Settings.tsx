@@ -1,13 +1,106 @@
+import { useState, useEffect } from 'react';
 import Breadcrumb from '../components/Breadcrumbs/Breadcrumb';
 import userThree from '../images/user/user-03.png';
 import DefaultLayout from '../layout/DefaultLayout';
 
 const Settings = () => {
+  const [profile, setProfile] = useState({
+    fullName: '',
+    phoneNumber: '',
+    emailAddress: '',
+    username: '',
+    bio: '',
+    avatar: userThree,
+    automaticThreatResponse: false, // New field for automatic threat response
+    selectedOption: '', // New field for dropdown selection
+  });
+
+  useEffect(() => {
+    // Fetch user data when component mounts
+    const fetchUserData = async () => {
+      try {
+        const response = await fetch('http://198.244.177.53:5000/api/user', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        const data = await response.json();
+        setProfile({
+          fullName: data.fullName,
+          phoneNumber: data.phoneNumber,
+          emailAddress: data.emailAddress,
+          username: data.username,
+          bio: data.bio,
+          avatar: data.avatar,
+          automaticThreatResponse: data.automaticThreatResponse || false,
+          selectedOption: data.selectedOption || '',
+        });
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+      }
+    };
+
+    fetchUserData();
+  }, []);
+
+  const handleChange = (e: any) => {
+    const { name, value, type, checked } = e.target;
+    setProfile((prevProfile) => ({
+      ...prevProfile,
+      [name]: type === 'checkbox' ? checked : value,
+    }));
+  };
+
+  const handleFileChange = (e: any) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (upload) => {
+        if (upload.target) {
+          setProfile((prevProfile) => ({
+            ...prevProfile,
+            avatar: upload.target.result,
+          }));
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSubmit = async (e: any) => {
+    e.preventDefault();
+    try {
+      const response = await fetch('http://198.244.177.53:5000/api/update-profile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify(profile),
+      });
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      const data = await response.json();
+      console.log('Profile updated:', data);
+
+
+      window.electron.updateSettings({
+        automaticThreatResponse: profile.automaticThreatResponse,
+        selectedOption: profile.selectedOption
+      });
+    } catch (error) {
+      console.error('Error updating profile:', error);
+    }
+  };
+
   return (
     <DefaultLayout>
       <div className="mx-auto max-w-270">
         <Breadcrumb pageName="Settings" />
-
         <div className="grid grid-cols-5 gap-8">
           <div className="col-span-5 xl:col-span-3">
             <div className="rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
@@ -17,7 +110,7 @@ const Settings = () => {
                 </h3>
               </div>
               <div className="p-7">
-                <form action="#">
+                <form onSubmit={handleSubmit}>
                   <div className="mb-5.5 flex flex-col gap-5.5 sm:flex-row">
                     <div className="w-full sm:w-1/2">
                       <label
@@ -58,7 +151,8 @@ const Settings = () => {
                           name="fullName"
                           id="fullName"
                           placeholder="Devid Jhon"
-                          defaultValue="Devid Jhon"
+                          value={profile.username}
+                          onChange={handleChange}
                         />
                       </div>
                     </div>
@@ -76,7 +170,8 @@ const Settings = () => {
                         name="phoneNumber"
                         id="phoneNumber"
                         placeholder="+990 3343 7865"
-                        defaultValue="+990 3343 7865"
+                        value={profile.phoneNumber}
+                        onChange={handleChange}
                       />
                     </div>
                   </div>
@@ -120,7 +215,8 @@ const Settings = () => {
                         name="emailAddress"
                         id="emailAddress"
                         placeholder="devidjond45@gmail.com"
-                        defaultValue="devidjond45@gmail.com"
+                        value={profile.emailAddress}
+                        onChange={handleChange}
                       />
                     </div>
                   </div>
@@ -128,24 +224,25 @@ const Settings = () => {
                   <div className="mb-5.5">
                     <label
                       className="mb-3 block text-sm font-medium text-black dark:text-white"
-                      htmlFor="Username"
+                      htmlFor="username"
                     >
                       Username
                     </label>
                     <input
                       className="w-full rounded border border-stroke bg-gray py-3 px-4.5 text-black focus:border-primary focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:text-white dark:focus:border-primary"
                       type="text"
-                      name="Username"
-                      id="Username"
+                      name="username"
+                      id="username"
                       placeholder="devidjhon24"
-                      defaultValue="devidjhon24"
+                      value={profile.username}
+                      onChange={handleChange}
                     />
                   </div>
 
                   <div className="mb-5.5">
                     <label
                       className="mb-3 block text-sm font-medium text-black dark:text-white"
-                      htmlFor="Username"
+                      htmlFor="bio"
                     >
                       BIO
                     </label>
@@ -187,15 +284,53 @@ const Settings = () => {
                         id="bio"
                         rows={6}
                         placeholder="Write your bio here"
-                        defaultValue="Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque posuere fermentum urna, eu condimentum mauris tempus ut. Donec fermentum blandit aliquet."
+                        value={profile.bio}
+                        onChange={handleChange}
                       ></textarea>
                     </div>
+                  </div>
+                  <div className="mb-5.5">
+                    <label
+                      className="mb-3 block text-sm font-medium text-black dark:text-white"
+                      htmlFor="automaticThreatResponse"
+                    >
+                      Automatic Threat Response
+                    </label>
+                    <input
+                      type="checkbox"
+                      name="automaticThreatResponse"
+                      id="automaticThreatResponse"
+                      checked={profile.automaticThreatResponse}
+                      onChange={handleChange}
+                    />
+                  </div>
+
+                  <div className="mb-5.5">
+                    <label
+                      className="mb-3 block text-sm font-medium text-black dark:text-white"
+                      htmlFor="selectedOption"
+                    >
+                      Options
+                    </label>
+                    <select
+                      name="selectedOption"
+                      id="selectedOption"
+                      value={profile.selectedOption}
+                      onChange={handleChange}
+                      className="w-full rounded border border-stroke bg-gray py-3 pl-4.5 pr-4.5 text-black focus:border-primary focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:text-white dark:focus:border-primary"
+                    >
+                      <option value="">Select Response Template</option>
+                      <option value="option1">Auto Drop / Block all malicous detected packets. Stop all traffic and only allow whitelisted traffic.</option>
+                      <option value="option2">Auto Drop / Block all malicous detected packets. Allow all other traffic thats non malicous.</option>
+                      <option value="option3">Notify of Malicous Packets only.</option>
+                    </select>
                   </div>
 
                   <div className="flex justify-end gap-4.5">
                     <button
                       className="flex justify-center rounded border border-stroke py-2 px-6 font-medium text-black hover:shadow-1 dark:border-strokedark dark:text-white"
-                      type="submit"
+                      type="button"
+                      onClick={() => console.log('Cancel')}
                     >
                       Cancel
                     </button>
@@ -218,20 +353,20 @@ const Settings = () => {
                 </h3>
               </div>
               <div className="p-7">
-                <form action="#">
+                <form>
                   <div className="mb-4 flex items-center gap-3">
                     <div className="h-14 w-14 rounded-full">
-                      <img src={userThree} alt="User" />
+                      <img src={profile.avatar} alt="User" />
                     </div>
                     <div>
                       <span className="mb-1.5 text-black dark:text-white">
                         Edit your photo
                       </span>
                       <span className="flex gap-2.5">
-                        <button className="text-sm hover:text-primary">
+                        <button className="text-sm hover:text-primary" type="button">
                           Delete
                         </button>
-                        <button className="text-sm hover:text-primary">
+                        <button className="text-sm hover:text-primary" type="button">
                           Update
                         </button>
                       </span>
@@ -246,6 +381,7 @@ const Settings = () => {
                       type="file"
                       accept="image/*"
                       className="absolute inset-0 z-50 m-0 h-full w-full cursor-pointer p-0 opacity-0 outline-none"
+                      onChange={handleFileChange}
                     />
                     <div className="flex flex-col items-center justify-center space-y-3">
                       <span className="flex h-10 w-10 items-center justify-center rounded-full border border-stroke bg-white dark:border-strokedark dark:bg-boxdark">
@@ -288,7 +424,8 @@ const Settings = () => {
                   <div className="flex justify-end gap-4.5">
                     <button
                       className="flex justify-center rounded border border-stroke py-2 px-6 font-medium text-black hover:shadow-1 dark:border-strokedark dark:text-white"
-                      type="submit"
+                      type="button"
+                      onClick={() => console.log('Cancel')}
                     >
                       Cancel
                     </button>
