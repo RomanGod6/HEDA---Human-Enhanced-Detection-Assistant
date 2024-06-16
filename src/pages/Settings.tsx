@@ -43,7 +43,25 @@ const Settings = () => {
       }
     };
 
+    // Fetch security actions when component mounts
+    const fetchSecurityAction = async () => {
+      try {
+        const securityActions = await window.electron.fetchSecurityActions();
+        const activeAction = securityActions.find(action => action.isActive);
+        if (activeAction) {
+          setProfile(prevProfile => ({
+            ...prevProfile,
+            automaticThreatResponse: activeAction.automatic_threat_response,
+            selectedOption: activeAction.selected_option,
+          }));
+        }
+      } catch (error) {
+        console.error('Error fetching security action:', error);
+      }
+    };
+
     fetchUserData();
+    fetchSecurityAction();
   }, []);
 
   const handleChange = (e: any) => {
@@ -87,8 +105,7 @@ const Settings = () => {
       const data = await response.json();
       console.log('Profile updated:', data);
 
-
-      window.electron.updateSettings({
+      window.electron.saveSecurityAction({
         automaticThreatResponse: profile.automaticThreatResponse,
         selectedOption: profile.selectedOption
       });
@@ -151,7 +168,7 @@ const Settings = () => {
                           name="fullName"
                           id="fullName"
                           placeholder="Devid Jhon"
-                          value={profile.username}
+                          value={profile.fullName}
                           onChange={handleChange}
                         />
                       </div>

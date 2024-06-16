@@ -41,6 +41,15 @@ function initDb() {
             acknowledged BOOLEAN DEFAULT 0,
             FOREIGN KEY (log_id) REFERENCES firewall_logs (id)
         )`);
+        db.run(`
+            CREATE TABLE IF NOT EXISTS securityactions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                automaticThreatResponse BOOLEAN,
+                updateTime TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                selectedOption TEXT,
+                isActive BOOLEAN
+            )
+        `);
     });
 
     db.close();

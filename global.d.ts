@@ -27,7 +27,10 @@ export interface ElectronAPI {
     updateNotificationStatus: (id: number, isMalicious: boolean) => Promise<any>;
     onMaliciousPacket: (callback: (event: any, data: AppNotification) => void) => void;
     removeMaliciousPacketListener: (callback: (event: any, data: AppNotification) => void) => void;
-    updateSettings: (settings: { automaticThreatResponse: boolean; selectedOption: string }) => void; // Add this line
+    updateSettings: (settings: { automaticThreatResponse: boolean; selectedOption: string }) => void;
+    fetchPacketLogs: (params: { page: number; pageSize: number; search: string; searchColumns: string[] }) => Promise<any>;
+    saveSecurityAction: (action: { automaticThreatResponse: boolean; selectedOption: string }) => Promise<any>;
+    fetchSecurityActions: () => Promise<any>;
 }
 
 declare global {

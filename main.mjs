@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 import sqlite3 from 'sqlite3';
 import { spawn } from 'child_process';
 import { WebSocketServer } from 'ws'; // Correct import
-import { initDb } from './initDatabase.mjs'; 
+import { initDb } from './initDatabase.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -186,6 +186,82 @@ ipcMain.handle('update-notification-status', async (event, id, isMalicious) => {
                 return;
             }
             resolve({ success: true });
+        });
+    });
+});
+
+ipcMain.handle('fetch-packet-logs', async (event, { page, pageSize, search, searchColumns }) => {
+    const offset = (page - 1) * pageSize;
+    const searchCondition = search ? `WHERE ${searchColumns.map(col => `${col} LIKE '%${search}%'`).join(' OR ')}` : '';
+
+    const logsQuery = `
+      SELECT id, src_ip, dst_ip, protocol, malicious, confidence, timestamp
+      FROM firewall_logs
+      ${searchCondition}
+      ORDER BY id DESC
+      LIMIT ${pageSize} OFFSET ${offset}
+    `;
+
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM firewall_logs
+      ${searchCondition}
+    `;
+
+    const logs = await new Promise((resolve, reject) => {
+        db.all(logsQuery, [], (err, rows) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(rows);
+            }
+        });
+    });
+
+    const total = await new Promise((resolve, reject) => {
+        db.get(countQuery, [], (err, row) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(row.total);
+            }
+        });
+    });
+
+    return { logs, total };
+});
+
+ipcMain.handle('fetch-security-actions', (event) => {
+    return new Promise((resolve, reject) => {
+        db.all('SELECT * FROM securityactions ORDER BY updateTime DESC', (err, rows) => {
+            if (err) {
+                reject(err);
+                return;
+            }
+            resolve(rows);
+        });
+    });
+});
+
+ipcMain.handle('save-security-action', (event, action) => {
+    return new Promise((resolve, reject) => {
+        db.serialize(() => {
+            db.run('UPDATE securityactions SET isActive = 0 WHERE isActive = 1', (updateErr) => {
+                if (updateErr) {
+                    reject(updateErr);
+                    return;
+                }
+                db.run(`
+                    INSERT INTO securityactions (automaticThreatResponse, selectedOption, isActive, updateTime)
+                    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                `, [action.automaticThreatResponse, action.selectedOption, 1], function (insertErr) {
+                    if (insertErr) {
+                        reject(insertErr);
+                        return;
+                    }
+                    resolve({ id: this.lastID });
+                });
+            });
         });
     });
 });

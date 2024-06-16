@@ -1,0 +1,19 @@
+/* src/styles.css */
+.data-grid-container {
+    background-color: #1E293B;
+    color: #FFFFFF;
+    border: none;
+    box-shadow: 0px 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.data-grid .MuiDataGrid-columnHeaders {
+    background-color: #1E3A8A;
+}
+
+.data-grid .MuiDataGrid-footerContainer {
+    background-color: #1E3A8A;
+}
+
+.data-grid .MuiDataGrid-cell {
+    border-bottom: 1px solid #3B82F6;
+}

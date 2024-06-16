@@ -7,6 +7,7 @@ import SignIn from './pages/Authentication/SignIn';
 import SignUp from './pages/Authentication/SignUp';
 import NotificationDetail from './pages/NotificationDetail';
 import Settings from './pages/Settings';
+import LogsDashboard from './pages/Dashboard/LogsDashboard';
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
           <Route path="/auth/signup" element={<PublicRoute><SignUp /></PublicRoute>} />
           <Route path="/notification/:id" element={<PrivateRoute><NotificationDetail /></PrivateRoute>} />
           <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
+          <Route path="/logs" element={<PrivateRoute><LogsDashboard /></PrivateRoute>} />
         </Routes>
       </AuthProvider>
     </Router>

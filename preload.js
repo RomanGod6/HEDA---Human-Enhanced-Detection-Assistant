@@ -7,7 +7,8 @@ contextBridge.exposeInMainWorld('electron', {
     updateNotificationStatus: (id, isMalicious) => ipcRenderer.invoke('update-notification-status', id, isMalicious),
     onMaliciousPacket: (callback) => ipcRenderer.on('malicious_packet', callback),
     removeMaliciousPacketListener: (callback) => ipcRenderer.removeListener('malicious_packet', callback),
-
-    // Add this line to expose the update-settings event
     updateSettings: (settings) => ipcRenderer.send('update-settings', settings),
+    fetchPacketLogs: ({ page, pageSize, search, searchColumns }) => ipcRenderer.invoke('fetch-packet-logs', { page, pageSize, search, searchColumns }),
+    saveSecurityAction: (action) => ipcRenderer.invoke('save-security-action', action),
+    fetchSecurityActions: () => ipcRenderer.invoke('fetch-security-actions'),
 });
