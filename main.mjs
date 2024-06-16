@@ -3,7 +3,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import sqlite3 from 'sqlite3';
 import { spawn } from 'child_process';
-import WebSocket from 'ws';
+import { WebSocketServer } from 'ws'; // Correct import
+import { initDb } from './initDatabase.mjs'; 
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -44,11 +45,11 @@ function runPythonScript() {
 }
 
 function startWebSocketServer() {
-    wss = new WebSocket.Server({ port: 8765 });
+    wss = new WebSocketServer({ port: 8765 });
 
-    wss.on('connection', ws => {
+    wss.on('connection', (ws) => {
         console.log('WebSocket connection established');
-        ws.on('message', message => {
+        ws.on('message', (message) => {
             const data = JSON.parse(message);
             if (data.type === 'malicious_packet') {
                 console.log('Malicious packet detected:', data);
@@ -62,6 +63,7 @@ function startWebSocketServer() {
 
 app.whenReady().then(() => {
     console.log('App is ready');
+    initDb();
     createWindow();
     runPythonScript();
     startWebSocketServer();
@@ -85,7 +87,7 @@ app.on('activate', () => {
 const dbPath = path.join(__dirname, 'network_traffic.db');
 const db = new sqlite3.Database(dbPath);
 
-ipcMain.handle('fetch-firewall-stats', (event) => {
+ipcMain.handle('fetch-firewall-stats', async (event) => {
     return new Promise((resolve, reject) => {
         db.serialize(() => {
             db.get('SELECT COUNT(*) AS totalPackets, SUM(malicious) AS maliciousPackets FROM firewall_logs', [], (err, row) => {
@@ -136,7 +138,7 @@ ipcMain.handle('fetch-firewall-stats', (event) => {
     });
 });
 
-ipcMain.handle('fetch-notifications', (event) => {
+ipcMain.handle('fetch-notifications', async (event) => {
     return new Promise((resolve, reject) => {
         db.all('SELECT * FROM notifications WHERE notified = 1 AND acknowledged = 0', [], (err, rows) => {
             if (err) {

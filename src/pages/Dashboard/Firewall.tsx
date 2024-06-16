@@ -9,7 +9,6 @@ const FirewallDashboard: React.FC = () => {
   const [firewallStats, setFirewallStats] = useState({
     totalPackets: 0,
     maliciousPackets: 0,
-    benignPackets: 0,
     topSourceIPs: [],
     topDestinationIPs: [],
     protocolDistribution: [],
@@ -31,12 +30,16 @@ const FirewallDashboard: React.FC = () => {
     return () => clearInterval(intervalId);
   }, []);
 
+  const totalPackets = firewallStats.totalPackets !== null ? firewallStats.totalPackets.toString() : '0';
+  const maliciousPackets = firewallStats.maliciousPackets !== null ? firewallStats.maliciousPackets.toString() : '0';
+  const benignPackets = (firewallStats.totalPackets - firewallStats.maliciousPackets) !== null ? (firewallStats.totalPackets - firewallStats.maliciousPackets).toString() : '0';
+
   return (
     <DefaultLayout>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 xl:grid-cols-4 2xl:gap-7.5">
         <CardDataStats
           title='Packets Scanned'
-          total={firewallStats.totalPackets.toString()}
+          total={totalPackets}
           description="Total number of packets scanned."
           icon={
             <svg
@@ -55,7 +58,7 @@ const FirewallDashboard: React.FC = () => {
         />
         <CardDataStats
           title='Malicious Packets'
-          total={firewallStats.maliciousPackets.toString()}
+          total={maliciousPackets}
           description="Total number of detected malicious packets."
           icon={
             <svg
@@ -74,7 +77,7 @@ const FirewallDashboard: React.FC = () => {
         />
         <CardDataStats
           title='Benign Packets'
-          total={(firewallStats.totalPackets - firewallStats.maliciousPackets).toString()}
+          total={benignPackets}
           description="Total number of benign packets."
           icon={
             <svg
@@ -96,18 +99,18 @@ const FirewallDashboard: React.FC = () => {
       <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 2xl:grid-cols-4 2xl:gap-7.5">
         <TopIPs
           title="Top Source IPs"
-          data={firewallStats.topSourceIPs}
+          data={firewallStats.topSourceIPs || []}
         />
         <TopIPs
           title="Top Destination IPs"
-          data={firewallStats.topDestinationIPs}
+          data={firewallStats.topDestinationIPs || []}
         />
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 2xl:grid-cols-4 2xl:gap-7.5">
         <ProtocolDistribution
           title="Protocol Distribution"
-          data={firewallStats.protocolDistribution}
+          data={firewallStats.protocolDistribution || []}
         />
       </div>
 
