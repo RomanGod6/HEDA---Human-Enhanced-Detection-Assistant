@@ -50,6 +50,36 @@ function initDb() {
                 isActive BOOLEAN
             )
         `);
+        // Create notifications table if it doesn't exist
+        db.run(`
+            CREATE TABLE IF NOT EXISTS notifications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                log_id INTEGER,
+                notified INTEGER,
+                acknowledged INTEGER,
+                timestamp TEXT,
+                FOREIGN KEY(log_id) REFERENCES firewall_logs(id)
+            )
+        `);
+
+        // Create securityactions table if it doesn't exist
+        db.run(`
+            CREATE TABLE IF NOT EXISTS securityactions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                automaticThreatResponse BOOLEAN,
+                selectedOption TEXT,
+                isActive BOOLEAN,
+                updateTime TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Create whitelist table if it doesn't exist
+        db.run(`
+            CREATE TABLE IF NOT EXISTS whitelist (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ip_address TEXT NOT NULL UNIQUE
+            )
+        `);
     });
 
     db.close();

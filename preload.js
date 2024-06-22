@@ -11,4 +11,8 @@ contextBridge.exposeInMainWorld('electron', {
     fetchPacketLogs: ({ page, pageSize, search, searchColumns }) => ipcRenderer.invoke('fetch-packet-logs', { page, pageSize, search, searchColumns }),
     saveSecurityAction: (action) => ipcRenderer.invoke('save-security-action', action),
     fetchSecurityActions: () => ipcRenderer.invoke('fetch-security-actions'),
+    fetchSettings: () => ipcRenderer.invoke('fetch-settings'),
+    fetchWhitelist: () => ipcRenderer.invoke('fetch-whitelist'),
+    addToWhitelist: (ipAddress) => ipcRenderer.invoke('add-to-whitelist', ipAddress),
+    removeFromWhitelist: (id) => ipcRenderer.invoke('remove-from-whitelist', id),
 });

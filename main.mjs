@@ -265,3 +265,53 @@ ipcMain.handle('save-security-action', (event, action) => {
         });
     });
 });
+ipcMain.handle('fetch-settings', async (event) => {
+    return new Promise((resolve, reject) => {
+        db.get('SELECT automaticThreatResponse, selectedOption FROM securityactions WHERE isActive = 1', [], (err, row) => {
+            if (err) {
+                console.error('Database error:', err);
+                reject(err);
+                return;
+            }
+            resolve(row);
+        });
+    });
+});
+ipcMain.handle('fetch-whitelist', async (event) => {
+    return new Promise((resolve, reject) => {
+        db.all('SELECT * FROM whitelist', [], (err, rows) => {
+            if (err) {
+                console.error('Database error:', err);
+                reject(err);
+            } else {
+                resolve(rows);
+            }
+        });
+    });
+});
+
+ipcMain.handle('add-to-whitelist', async (event, ipAddress) => {
+    return new Promise((resolve, reject) => {
+        db.run('INSERT INTO whitelist (ip_address) VALUES (?)', [ipAddress], function (err) {
+            if (err) {
+                console.error('Database error:', err);
+                reject(err);
+            } else {
+                resolve({ id: this.lastID, ip_address: ipAddress });
+            }
+        });
+    });
+});
+
+ipcMain.handle('remove-from-whitelist', async (event, id) => {
+    return new Promise((resolve, reject) => {
+        db.run('DELETE FROM whitelist WHERE id = ?', [id], function (err) {
+            if (err) {
+                console.error('Database error:', err);
+                reject(err);
+            } else {
+                resolve({ success: true });
+            }
+        });
+    });
+});

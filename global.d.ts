@@ -20,6 +20,11 @@ export interface PacketDetails {
     timestamp: string;
 }
 
+export interface WhitelistEntry {
+    id: number;
+    ip_address: string;
+}
+
 export interface ElectronAPI {
     fetchFirewallStats: () => Promise<any>;
     fetchNotifications: () => Promise<AppNotification[]>;
@@ -31,6 +36,10 @@ export interface ElectronAPI {
     fetchPacketLogs: (params: { page: number; pageSize: number; search: string; searchColumns: string[] }) => Promise<any>;
     saveSecurityAction: (action: { automaticThreatResponse: boolean; selectedOption: string }) => Promise<any>;
     fetchSecurityActions: () => Promise<any>;
+    fetchSettings: () => Promise<{ automaticThreatResponse: boolean; selectedOption: string }>;
+    fetchWhitelist: () => Promise<WhitelistEntry[]>;
+    addToWhitelist: (ipAddress: string) => Promise<WhitelistEntry>;
+    removeFromWhitelist: (id: number) => Promise<{ success: boolean }>;
 }
 
 declare global {

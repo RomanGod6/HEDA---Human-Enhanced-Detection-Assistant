@@ -10,7 +10,9 @@ import sqlite3
 import datetime
 from collections import defaultdict
 import signal
-
+import subprocess
+from win10toast import ToastNotifier
+toaster = ToastNotifier()
 # Load the preprocessor and models
 sys.stdout.reconfigure(encoding='utf-8')
 sys.stderr.reconfigure(encoding='utf-8')
@@ -69,8 +71,36 @@ def init_db():
             FOREIGN KEY (log_id) REFERENCES firewall_logs (id)
         )
     ''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS whitelist (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ip_address TEXT NOT NULL UNIQUE
+        )
+    ''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS auto_responses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            log_id INTEGER,
+            response TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (log_id) REFERENCES firewall_logs (id)
+        )
+    ''')
     conn.commit()
     conn.close()
+
+def fetch_latest_settings():
+    conn = sqlite3.connect('network_traffic.db')
+    c = conn.cursor()
+    c.execute('SELECT automaticThreatResponse, selectedOption FROM securityactions WHERE isActive = 1 ORDER BY updateTime DESC LIMIT 1')
+    row = c.fetchone()
+    conn.close()
+    if row:
+        return {
+            'automaticThreatResponse': row[0],
+            'selectedOption': row[1]
+        }
+    return None
 
 def log_packet(src_ip, dst_ip, src_port, dst_port, protocol, length, flags, payload, packet_details, malicious, confidence, model_output, inter_arrival_time, byte_ratio, sbytes, dur, dbytes, state, sttl, dttl, service):
     conn = sqlite3.connect('network_traffic.db')
@@ -93,6 +123,40 @@ def log_notification(log_id):
     ''', (log_id, 1, datetime.datetime.now().isoformat(), 0))
     conn.commit()
     conn.close()
+
+def log_auto_response(log_id, response):
+    conn = sqlite3.connect('network_traffic.db')
+    c = conn.cursor()
+    c.execute('''
+        INSERT INTO auto_responses (log_id, response, timestamp)
+        VALUES (?, ?, ?)
+    ''', (log_id, response, datetime.datetime.now().isoformat()))
+    conn.commit()
+    conn.close()
+
+def get_whitelist():
+    conn = sqlite3.connect('network_traffic.db')
+    c = conn.cursor()
+    c.execute('SELECT ip_address FROM whitelist')
+    rows = c.fetchall()
+    conn.close()
+    return [row[0] for row in rows]
+
+def block_ip(ip_address):
+    try:
+        # Block outbound traffic
+        command_outbound = f"New-NetFirewallRule -DisplayName 'Block {ip_address} Outbound' -Direction Outbound -RemoteAddress {ip_address} -Action Block"
+        subprocess.run(["powershell", "-Command", command_outbound], check=True)
+        
+        # Block inbound traffic
+        command_inbound = f"New-NetFirewallRule -DisplayName 'Block {ip_address} Inbound' -Direction Inbound -RemoteAddress {ip_address} -Action Block"
+        subprocess.run(["powershell", "-Command", command_inbound], check=True)
+        
+        print(f"Successfully blocked IP: {ip_address}")
+        toaster.show_toast("Firewall Alert", f"Successfully blocked IP: {ip_address}", duration=10)
+    except subprocess.CalledProcessError as e:
+        print(f"Error blocking IP {ip_address}: {e}")
+        toaster.show_toast("Firewall Alert", f"Error blocking IP {ip_address}: {e}", duration=10)
 
 # Dictionary to store flow state
 flow_state = defaultdict(lambda: {
@@ -189,6 +253,12 @@ def preprocess_packet(packet):
 
 def analyze_packet(packet):
     try:
+        # Fetch the latest settings
+        settings = fetch_latest_settings()
+        if not settings:
+            print("No settings found in the database. Skipping packet analysis.")
+            return
+
         processed_features, inter_arrival_time, byte_ratio, dur, sbytes, dbytes, state, sttl, dttl, service = preprocess_packet(packet)
         is_outlier = iso_forest.predict(processed_features)
         prediction = deep_model.predict(processed_features)
@@ -199,12 +269,44 @@ def analyze_packet(packet):
         confidence = float(prediction[0][0])
         malicious = prediction_label == 'Malicious'
 
+        # Retrieve whitelist from database
+        whitelist = get_whitelist()
+
+        # Check if the source or destination IP is in the whitelist
+        if src_ip in whitelist or dst_ip in whitelist:
+            print(f"Packet from {src_ip} to {dst_ip} is whitelisted. Skipping analysis.")
+            return
+
         # Log to database
         log_id = log_packet(src_ip, dst_ip, src_port, dst_port, protocol, length, flags, payload, packet_details, malicious, confidence, str(prediction), inter_arrival_time, byte_ratio, sbytes, dur, dbytes, state, sttl, dttl, service)
 
         # Log notification if packet is malicious
         if malicious:
             log_notification(log_id)
+
+        # Auto response actions based on selected option
+        response = ""
+        if settings['selectedOption'] == 'option1':
+            # Block all malicious packets and stop all traffic except whitelisted
+            if malicious:
+                response = f"Blocking malicious packet from {src_ip} to {dst_ip} and stopping all traffic except whitelisted IPs."
+                print(response)
+                block_ip(src_ip)
+        elif settings['selectedOption'] == 'option2':
+            # Block all malicious packets and allow all other non-malicious traffic
+            if malicious:
+                response = f"Blocking malicious packet from {src_ip} to {dst_ip}."
+                print(response)
+                block_ip(src_ip)
+        elif settings['selectedOption'] == 'option3':
+            # Notify only for malicious packets
+            if malicious:
+                response = f"Notifying about malicious packet from {src_ip} to {dst_ip}."
+                print(response)
+                # Implement notification logic here
+        
+        if response:
+            log_auto_response(log_id, response)
 
         packet_details_output = f"Packet: SRC {src_ip}:{src_port} -> DST {dst_ip}:{dst_port} on PROTO {protocol}\n"
         packet_details_output += f"Length: {length} Flags: {flags} Payload: {payload}\n"
