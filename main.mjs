@@ -1,16 +1,22 @@
+import express from 'express';
+import bodyParser from 'body-parser';
+import { v4 as uuidv4 } from 'uuid';
 import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import sqlite3 from 'sqlite3';
 import { spawn } from 'child_process';
-import { WebSocketServer } from 'ws'; // Correct import
+import { WebSocketServer } from 'ws';
 import { initDb } from './initDatabase.mjs';
+import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 let mainWindow;
-let wss; // WebSocket server
+let wss;
+
+let BEARER_TOKEN = 'aaeedfflgsdjfgn;sdjfnb;jnfdnb;kjnfd;bjsdfjb'; // Default token
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -26,6 +32,16 @@ function createWindow() {
 
     mainWindow.loadURL('http://localhost:5173/');
     mainWindow.webContents.openDevTools();
+}
+
+function logToFile(message) {
+    const logFilePath = path.join(__dirname, 'server.log');
+    const logMessage = `${new Date().toISOString()} - ${message}\n`;
+    fs.appendFile(logFilePath, logMessage, (err) => {
+        if (err) {
+            console.error('Error writing to log file', err);
+        }
+    });
 }
 
 function runPythonScript() {
@@ -61,12 +77,19 @@ function startWebSocketServer() {
     console.log('WebSocket server started on ws://localhost:8765');
 }
 
+ipcMain.handle('updateSettings', async (event, settings) => {
+    if (settings.bearerToken) {
+        BEARER_TOKEN = settings.bearerToken;
+    }
+});
+
 app.whenReady().then(() => {
     console.log('App is ready');
     initDb();
     createWindow();
     runPythonScript();
     startWebSocketServer();
+    startApiServer();
 });
 
 app.on('window-all-closed', () => {
@@ -83,7 +106,6 @@ app.on('activate', () => {
     }
 });
 
-// SQLite Database Setup
 const dbPath = path.join(__dirname, 'network_traffic.db');
 const db = new sqlite3.Database(dbPath);
 
@@ -152,7 +174,7 @@ ipcMain.handle('fetch-notifications', async (event) => {
 });
 
 ipcMain.handle('fetch-notification-by-id', async (event, id) => {
-    console.log('Fetching notification by ID:', id); // Add logging here
+    console.log('Fetching notification by ID:', id);
     return new Promise((resolve, reject) => {
         db.get('SELECT * FROM notifications WHERE log_id = ?', [id], (err, notification) => {
             if (err) {
@@ -170,7 +192,7 @@ ipcMain.handle('fetch-notification-by-id', async (event, id) => {
                     reject(err);
                     return;
                 }
-                console.log('Fetched row:', { notification, packetDetails }); // Add logging here
+                console.log('Fetched row:', { notification, packetDetails });
                 resolve({ notification, packetDetails });
             });
         });
@@ -252,9 +274,9 @@ ipcMain.handle('save-security-action', (event, action) => {
                     return;
                 }
                 db.run(`
-                    INSERT INTO securityactions (automaticThreatResponse, selectedOption, isActive, updateTime)
-                    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-                `, [action.automaticThreatResponse, action.selectedOption, 1], function (insertErr) {
+                    INSERT INTO securityactions (automaticThreatResponse, selectedOption, bearerToken, isActive, updateTime)
+                    VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+                `, [action.automaticThreatResponse, action.selectedOption, action.bearerToken, 1], function (insertErr) {
                     if (insertErr) {
                         reject(insertErr);
                         return;
@@ -265,9 +287,11 @@ ipcMain.handle('save-security-action', (event, action) => {
         });
     });
 });
+
+
 ipcMain.handle('fetch-settings', async (event) => {
     return new Promise((resolve, reject) => {
-        db.get('SELECT automaticThreatResponse, selectedOption FROM securityactions WHERE isActive = 1', [], (err, row) => {
+        db.get('SELECT automaticThreatResponse, selectedOption, bearerToken FROM securityactions WHERE isActive = 1', [], (err, row) => {
             if (err) {
                 console.error('Database error:', err);
                 reject(err);
@@ -277,6 +301,8 @@ ipcMain.handle('fetch-settings', async (event) => {
         });
     });
 });
+
+
 ipcMain.handle('fetch-whitelist', async (event) => {
     return new Promise((resolve, reject) => {
         db.all('SELECT * FROM whitelist', [], (err, rows) => {
@@ -315,3 +341,96 @@ ipcMain.handle('remove-from-whitelist', async (event, id) => {
         });
     });
 });
+
+ipcMain.handle('mark-all-notifications-as-viewed', async (event) => {
+    return new Promise((resolve, reject) => {
+        db.run('UPDATE notifications SET acknowledged = 1 WHERE acknowledged = 0', function (err) {
+            if (err) {
+                console.error('Database error:', err);
+                reject(err);
+                return;
+            }
+            resolve({ success: true });
+        });
+    });
+});
+
+
+function startApiServer() {
+    const apiApp = express();
+    apiApp.use(bodyParser.json());
+
+    apiApp.use((req, res, next) => {
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1];
+        if (!token) {
+            logToFile('Unauthorized access attempt');
+            return res.sendStatus(401);
+        }
+
+        if (token !== BEARER_TOKEN) {
+            logToFile(`Forbidden access with token: ${token}`);
+            // Notify via Java program
+            const javaProcess = spawn('java', ['Notify', token]);
+            javaProcess.stdout.on('data', (data) => {
+                const message = `Java stdout: ${data}`;
+                console.log(message);
+                logToFile(message);
+            });
+
+            javaProcess.stderr.on('data', (data) => {
+                const message = `Java stderr: ${data}`;
+                console.error(message);
+                logToFile(message);
+            });
+
+            return res.sendStatus(403);
+        }
+        next();
+    });
+
+    apiApp.post('/api/alerts', (req, res) => {
+        const { source, timestamp, alertType, severity, details } = req.body;
+        const { src_ip, dst_ip, filename } = details;
+
+        const log_id = saveAlertToDatabase(source, timestamp, alertType, severity, src_ip, dst_ip, filename);
+        res.json({ success: true, log_id });
+    });
+
+    apiApp.get('/api/firewall-logs', (req, res) => {
+        db.all('SELECT * FROM firewall_logs', [], (err, rows) => {
+            if (err) {
+                res.status(500).json({ error: 'Database error' });
+                return;
+            }
+            res.json({ logs: rows });
+        });
+    });
+
+    apiApp.get('/api/notifications', (req, res) => {
+        db.all('SELECT * FROM notifications', [], (err, rows) => {
+            if (err) {
+                res.status(500).json({ error: 'Database error' });
+                return;
+            }
+            res.json({ notifications: rows });
+        });
+    });
+
+    apiApp.listen(3000, () => {
+        console.log('API server started on port 3000');
+    });
+}
+
+function saveAlertToDatabase(source, timestamp, alertType, severity, src_ip, dst_ip, filename) {
+    return new Promise((resolve, reject) => {
+        db.run('INSERT INTO alerts (source, timestamp, alertType, severity, src_ip, dst_ip, filename) VALUES (?, ?, ?, ?, ?, ?, ?)', [source, timestamp, alertType, severity, src_ip, dst_ip, filename], function (err) {
+            if (err) {
+                console.error('Database error:', err);
+                reject(err);
+            } else {
+                resolve(this.lastID);
+            }
+        });
+    });
+}

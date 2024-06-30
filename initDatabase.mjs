@@ -32,15 +32,6 @@ function initDb() {
             dttl INTEGER,
             service TEXT
         )`);
-
-        db.run(`CREATE TABLE IF NOT EXISTS notifications (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            log_id INTEGER,
-            notified BOOLEAN DEFAULT 0,
-            notification_timestamp DATETIME,
-            acknowledged BOOLEAN DEFAULT 0,
-            FOREIGN KEY (log_id) REFERENCES firewall_logs (id)
-        )`);
         db.run(`
             CREATE TABLE IF NOT EXISTS securityactions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -55,10 +46,11 @@ function initDb() {
             CREATE TABLE IF NOT EXISTS notifications (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 log_id INTEGER,
-                notified INTEGER,
-                acknowledged INTEGER,
-                timestamp TEXT,
-                FOREIGN KEY(log_id) REFERENCES firewall_logs(id)
+                notified BOOLEAN DEFAULT 0,
+                notification_timestamp DATETIME,
+                acknowledged BOOLEAN DEFAULT 0,
+                malicious BOOLEAN DEFAULT 0,
+                FOREIGN KEY (log_id) REFERENCES firewall_logs (id)
             )
         `);
 
@@ -68,6 +60,7 @@ function initDb() {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 automaticThreatResponse BOOLEAN,
                 selectedOption TEXT,
+                bearerToken TEXT,
                 isActive BOOLEAN,
                 updateTime TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )

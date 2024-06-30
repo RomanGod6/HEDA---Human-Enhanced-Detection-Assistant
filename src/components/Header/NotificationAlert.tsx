@@ -5,9 +5,10 @@ import './styles.css'; // Import the CSS file
 
 interface NotificationAlertProps {
     notifications: AppNotification[];
+    onClearAll: () => void;
 }
 
-const NotificationAlert: React.FC<NotificationAlertProps> = ({ notifications }) => {
+const NotificationAlert: React.FC<NotificationAlertProps> = ({ notifications, onClearAll }) => {
     const [showAll, setShowAll] = useState(false);
 
     const handleViewAll = () => {
@@ -33,6 +34,11 @@ const NotificationAlert: React.FC<NotificationAlertProps> = ({ notifications }) 
             {!showAll && notifications.length > 10 && (
                 <button className="btn btn-link" onClick={handleViewAll}>
                     View All
+                </button>
+            )}
+            {notifications.length > 0 && (
+                <button className="btn btn-link" onClick={onClearAll}>
+                    Clear All
                 </button>
             )}
         </div>

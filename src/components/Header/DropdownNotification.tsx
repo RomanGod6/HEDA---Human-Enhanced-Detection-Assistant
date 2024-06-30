@@ -14,6 +14,11 @@ const DropdownNotification: React.FC = () => {
     setNotifications(result);
   };
 
+  const markAllAsViewed = async () => {
+    await window.electron.markAllNotificationsAsViewed();
+    fetchNotifications(); // Refresh notifications after marking all as viewed
+  };
+
   useEffect(() => {
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 5000); // Poll every 5 seconds
@@ -41,7 +46,12 @@ const DropdownNotification: React.FC = () => {
 
       {dropdownOpen && (
         <div className="absolute right-0 mt-4 w-48 bg-white shadow-md">
-          <NotificationAlert notifications={notifications} />
+          <div className="p-2">
+            <button onClick={markAllAsViewed} className="w-full text-center text-sm text-blue-600">
+              Mark All as Viewed
+            </button>
+          </div>
+          <NotificationAlert notifications={notifications} onNotificationClick={markAllAsViewed} />
         </div>
       )}
     </div>

@@ -20,6 +20,11 @@ export interface PacketDetails {
     timestamp: string;
 }
 
+export interface NotificationDetails {
+    notification: AppNotification;
+    packetDetails: PacketDetails;
+}
+
 export interface WhitelistEntry {
     id: number;
     ip_address: string;
@@ -28,18 +33,19 @@ export interface WhitelistEntry {
 export interface ElectronAPI {
     fetchFirewallStats: () => Promise<any>;
     fetchNotifications: () => Promise<AppNotification[]>;
-    fetchNotificationById: (id: number) => Promise<AppNotification>;
+    fetchNotificationById: (id: number) => Promise<NotificationDetails>;
     updateNotificationStatus: (id: number, isMalicious: boolean) => Promise<any>;
     onMaliciousPacket: (callback: (event: any, data: AppNotification) => void) => void;
     removeMaliciousPacketListener: (callback: (event: any, data: AppNotification) => void) => void;
-    updateSettings: (settings: { automaticThreatResponse: boolean; selectedOption: string }) => void;
+    updateSettings: (settings: { automaticThreatResponse: boolean; selectedOption: string; bearerToken: string }) => void;
     fetchPacketLogs: (params: { page: number; pageSize: number; search: string; searchColumns: string[] }) => Promise<any>;
-    saveSecurityAction: (action: { automaticThreatResponse: boolean; selectedOption: string }) => Promise<any>;
+    saveSecurityAction: (action: { automaticThreatResponse: boolean; selectedOption: string; bearerToken: string }) => Promise<any>;
     fetchSecurityActions: () => Promise<any>;
-    fetchSettings: () => Promise<{ automaticThreatResponse: boolean; selectedOption: string }>;
+    fetchSettings: () => Promise<{ automaticThreatResponse: boolean; selectedOption: string; bearerToken: string }>;
     fetchWhitelist: () => Promise<WhitelistEntry[]>;
     addToWhitelist: (ipAddress: string) => Promise<WhitelistEntry>;
     removeFromWhitelist: (id: number) => Promise<{ success: boolean }>;
+    markAllNotificationsAsViewed: () => Promise<any>;
 }
 
 declare global {

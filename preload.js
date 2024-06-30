@@ -15,4 +15,5 @@ contextBridge.exposeInMainWorld('electron', {
     fetchWhitelist: () => ipcRenderer.invoke('fetch-whitelist'),
     addToWhitelist: (ipAddress) => ipcRenderer.invoke('add-to-whitelist', ipAddress),
     removeFromWhitelist: (id) => ipcRenderer.invoke('remove-from-whitelist', id),
+    markAllNotificationsAsViewed: () => ipcRenderer.invoke('mark-all-notifications-as-viewed'),
 });

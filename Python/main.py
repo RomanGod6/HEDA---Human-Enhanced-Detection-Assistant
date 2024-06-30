@@ -12,6 +12,7 @@ from collections import defaultdict
 import signal
 import subprocess
 from win10toast import ToastNotifier
+
 toaster = ToastNotifier()
 # Load the preprocessor and models
 sys.stdout.reconfigure(encoding='utf-8')
@@ -142,8 +143,18 @@ def get_whitelist():
     conn.close()
     return [row[0] for row in rows]
 
+def firewall_rule_exists(ip_address):
+    check_command = f"Get-NetFirewallRule | Get-NetFirewallAddressFilter | Where-Object {{ $_.RemoteAddress -eq '{ip_address}' }}"
+    result = subprocess.run(["powershell", "-Command", check_command], capture_output=True, text=True)
+    return bool(result.stdout.strip())
+
 def block_ip(ip_address):
     try:
+        if firewall_rule_exists(ip_address):
+            print(f"Firewall rule already exists for IP: {ip_address}")
+            toaster.show_toast("Firewall Alert", f"Firewall rule already exists for IP: {ip_address}", duration=10)
+            return
+
         # Block outbound traffic
         command_outbound = f"New-NetFirewallRule -DisplayName 'Block {ip_address} Outbound' -Direction Outbound -RemoteAddress {ip_address} -Action Block"
         subprocess.run(["powershell", "-Command", command_outbound], check=True)
@@ -265,7 +276,7 @@ def analyze_packet(packet):
         src_ip, dst_ip, src_port, dst_port, protocol, length, flags, payload = packet_features(packet)
         packet_details = packet.show(dump=True)
         
-        prediction_label = 'Malicious' if prediction[0][0] > 0.1 else 'Benign'
+        prediction_label = 'Malicious' if prediction[0][0] > 0.7 else 'Benign'
         confidence = float(prediction[0][0])
         malicious = prediction_label == 'Malicious'
 
