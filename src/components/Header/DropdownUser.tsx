@@ -6,8 +6,6 @@ const DropdownUser = () => {
   const { user, setIsLoggedIn } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
-
-
   const handleLogout = () => {
     localStorage.removeItem('token');
     setIsLoggedIn(false);
@@ -16,12 +14,8 @@ const DropdownUser = () => {
   useEffect(() => {
     if (user) {
       console.log("User updated:", user.name, user.avatar);
-
     }
   }, [user]);
-
-
-
 
   return (
     <div className="relative">
@@ -32,13 +26,17 @@ const DropdownUser = () => {
           </span>
         </span>
 
-        <img src={user && user.avatar ? user.avatar : '/Default_Icon.png'} alt="User" className="h-10 w-10 rounded-full" />
+        <img
+          src='./Default_Icon.png'
+          alt="User"
+          className="h-10 w-10 rounded-full"
+        />
       </div>
 
       {dropdownOpen && (
         <div className="absolute right-0 mt-4 w-48 bg-white shadow-md">
           <ul>
-            <li><Link to="/profile">Profile</Link></li>
+            <li><Link to="/settings">Profile</Link></li>
             <li><button onClick={handleLogout}>Log Out</button></li>
           </ul>
         </div>

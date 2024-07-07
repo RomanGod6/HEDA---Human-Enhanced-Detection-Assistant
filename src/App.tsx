@@ -9,6 +9,7 @@ import NotificationDetail from './pages/NotificationDetail';
 import Settings from './pages/Settings';
 import LogsDashboard from './pages/Dashboard/LogsDashboard';
 
+
 function App() {
   return (
     <Router>
