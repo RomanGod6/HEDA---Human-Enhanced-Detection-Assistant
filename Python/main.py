@@ -12,8 +12,10 @@ from collections import defaultdict
 import signal
 import subprocess
 from win10toast import ToastNotifier
+import socket
 
 toaster = ToastNotifier()
+
 # Load the preprocessor and models
 sys.stdout.reconfigure(encoding='utf-8')
 sys.stderr.reconfigure(encoding='utf-8')
@@ -22,9 +24,11 @@ preprocessor = joblib.load(preprocessor_path)
 
 iso_forest_path = './Python/Models/isolation_forest_model.joblib'
 deep_model_path = './Python/Models/deep_learning_model.h5'
+label_encoder_path = './Python/Models/label_encoder.joblib'
 
 iso_forest = joblib.load(iso_forest_path)
 deep_model = load_model(deep_model_path)
+label_encoder = joblib.load(label_encoder_path)
 
 # Initialize previous packet time and length for new features
 previous_pkt_time = 0
@@ -47,6 +51,7 @@ def init_db():
             malicious BOOLEAN,
             confidence REAL,
             model_output TEXT,
+            attack_type TEXT,
             length INTEGER,
             flags TEXT,
             payload TEXT,
@@ -90,6 +95,17 @@ def init_db():
     conn.commit()
     conn.close()
 
+def update_db_schema():
+    conn = sqlite3.connect('network_traffic.db')
+    c = conn.cursor()
+    # Check if the column already exists before attempting to add it
+    c.execute("PRAGMA table_info(firewall_logs)")
+    columns = [info[1] for info in c.fetchall()]
+    if 'attack_type' not in columns:
+        c.execute('ALTER TABLE firewall_logs ADD COLUMN attack_type TEXT')
+    conn.commit()
+    conn.close()
+
 def fetch_latest_settings():
     conn = sqlite3.connect('network_traffic.db')
     c = conn.cursor()
@@ -103,13 +119,15 @@ def fetch_latest_settings():
         }
     return None
 
-def log_packet(src_ip, dst_ip, src_port, dst_port, protocol, length, flags, payload, packet_details, malicious, confidence, model_output, inter_arrival_time, byte_ratio, sbytes, dur, dbytes, state, sttl, dttl, service):
+def log_packet(src_ip, dst_ip, src_port, dst_port, protocol, length, flags, payload, packet_details, malicious, confidence, model_output, attack_type, inter_arrival_time, byte_ratio, sbytes, dur, dbytes, state, sttl, dttl, service):
+    if src_ip == "N/A" or dst_ip == "N/A" or protocol == "N/A":
+        return None
     conn = sqlite3.connect('network_traffic.db')
     c = conn.cursor()
     c.execute('''
-        INSERT INTO firewall_logs (src_ip, dst_ip, src_port, dst_port, protocol, length, flags, payload, packet_details, malicious, confidence, model_output, inter_arrival_time, byte_ratio, sbytes, dur, dbytes, state, sttl, dttl, service)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (src_ip, dst_ip, src_port, dst_port, protocol, length, flags, payload, packet_details, malicious, confidence, model_output, inter_arrival_time, byte_ratio, sbytes, dur, dbytes, state, sttl, dttl, service))
+        INSERT INTO firewall_logs (src_ip, dst_ip, src_port, dst_port, protocol, length, flags, payload, packet_details, malicious, confidence, model_output, attack_type, inter_arrival_time, byte_ratio, sbytes, dur, dbytes, state, sttl, dttl, service)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (src_ip, dst_ip, src_port, dst_port, protocol, length, flags, payload, packet_details, malicious, confidence, model_output, attack_type, inter_arrival_time, byte_ratio, sbytes, dur, dbytes, state, sttl, dttl, service))
     conn.commit()
     log_id = c.lastrowid
     conn.close()
@@ -174,20 +192,27 @@ flow_state = defaultdict(lambda: {
     'start_time': None, 'src_bytes': 0, 'dst_bytes': 0, 'packet_count': 0
 })
 
+
+def get_service_by_port(port, protocol='tcp'):
+    try:
+        return socket.getservbyport(port, protocol)
+    except:
+        return "N/A"
+
 def preprocess_packet(packet):
     global previous_pkt_time, previous_pkt_length
 
     srcip, dstip = "0.0.0.0", "0.0.0.0"
     sport, dport, proto = 0, 0, 0
     length, flags, payload, pkt_time = 0, "", "", 0
-    sttl, dttl, service = 0, 0, "N/A"  # Initialize new features
+    sttl, dttl, service = 0, 0, "N/A" 
     
     if IP in packet:
         srcip = packet[IP].src
         dstip = packet[IP].dst
         proto = packet[IP].proto
         pkt_time = packet.time
-        sttl = packet[IP].ttl  # Source TTL
+        sttl = packet[IP].ttl  
         
     if TCP in packet:
         sport = packet[TCP].sport
@@ -202,14 +227,9 @@ def preprocess_packet(packet):
     length = len(packet)
     payload = raw(packet[IP].payload).hex() if IP in packet else "N/A"
 
-    # Determine service based on destination port
-    if dport in [80, 443]:
-        service = "http"
-    elif dport == 53:
-        service = "dns"
-    elif dport == 21:
-        service = "ftp"
-    
+    # Determine service based on destination port using socket library
+    service = get_service_by_port(dport)
+
     # Log additional packet details for inspection
     print(f"Packet Info: SRC {srcip}:{sport} -> DST {dstip}:{dport} PROTO {proto} LENGTH {length}")
     print(f"Payload: {payload[:50]}...")  # Log a snippet of the payload for a quick check
@@ -262,6 +282,10 @@ def preprocess_packet(packet):
     processed_features = preprocessor.transform(features_df)
     return processed_features, inter_arrival_time, byte_ratio, dur, sbytes, dbytes, state, sttl, dttl, service
 
+
+
+    
+
 def analyze_packet(packet):
     try:
         # Fetch the latest settings
@@ -274,11 +298,32 @@ def analyze_packet(packet):
         is_outlier = iso_forest.predict(processed_features)
         prediction = deep_model.predict(processed_features)
         src_ip, dst_ip, src_port, dst_port, protocol, length, flags, payload = packet_features(packet)
+
+        # Validate IP addresses and protocol
+        if src_ip == "N/A" or dst_ip == "N/A" or protocol == "N/A":
+            print(f"Invalid packet data: SRC {src_ip}, DST {dst_ip}, PROTOCOL {protocol}. Skipping packet analysis.")
+            return
         packet_details = packet.show(dump=True)
         
-        prediction_label = 'Malicious' if prediction[0][0] > 0.7 else 'Benign'
-        confidence = float(prediction[0][0])
-        malicious = prediction_label == 'Malicious'
+        prediction_label_index = prediction.argmax(axis=-1)
+        attack_type = label_encoder.inverse_transform(prediction_label_index)[0]
+        
+        # Debugging: Check the shape and values of the prediction
+        print(f"Prediction shape: {prediction.shape}")
+        print(f"Prediction values: {prediction}")
+        
+        # Ensure prediction is a 2D array and extract confidence
+        if prediction.ndim == 2 and prediction.shape[0] == 1:
+            confidence = float(prediction[0, prediction_label_index[0]])
+        else:
+            confidence = float(prediction.max(axis=-1)[0])
+        
+        # Set the confidence threshold
+        confidence_threshold = 0.9
+        malicious = (confidence >= confidence_threshold)
+
+        # Debugging print statements
+        print(f"Attack Type: {attack_type}, Confidence: {confidence}, Malicious: {malicious}")
 
         # Retrieve whitelist from database
         whitelist = get_whitelist()
@@ -287,9 +332,10 @@ def analyze_packet(packet):
         if src_ip in whitelist or dst_ip in whitelist:
             print(f"Packet from {src_ip} to {dst_ip} is whitelisted. Skipping analysis.")
             return
+            
 
         # Log to database
-        log_id = log_packet(src_ip, dst_ip, src_port, dst_port, protocol, length, flags, payload, packet_details, malicious, confidence, str(prediction), inter_arrival_time, byte_ratio, sbytes, dur, dbytes, state, sttl, dttl, service)
+        log_id = log_packet(src_ip, dst_ip, src_port, dst_port, protocol, length, flags, payload, packet_details, malicious, confidence, str(prediction), attack_type, inter_arrival_time, byte_ratio, sbytes, dur, dbytes, state, sttl, dttl, service)
 
         # Log notification if packet is malicious
         if malicious:
@@ -322,7 +368,7 @@ def analyze_packet(packet):
         packet_details_output = f"Packet: SRC {src_ip}:{src_port} -> DST {dst_ip}:{dst_port} on PROTO {protocol}\n"
         packet_details_output += f"Length: {length} Flags: {flags} Payload: {payload}\n"
         packet_details_output += f"Isolation Forest Outlier: {'Yes' if is_outlier == -1 else 'No'}\n"
-        packet_details_output += f"Deep Learning Prediction: {prediction_label} with confidence {confidence:.2f}\n"
+        packet_details_output += f"Deep Learning Prediction: {attack_type} with confidence {confidence:.2f}\n"
         packet_details_output += f"Packet Details: {packet_details}\n"
         packet_details_output += f"Inter Arrival Time: {inter_arrival_time}\n"
         packet_details_output += f"Byte Ratio: {byte_ratio}\n"
@@ -382,6 +428,7 @@ signal.signal(signal.SIGTERM, signal_handler)
 if __name__ == "__main__":
     print(get_windows_if_list())  # List available interfaces for verification
     init_db()  # Initialize the database at start
+    update_db_schema()  # Update the database schema to include new columns
     gui_thread = threading.Thread(target=start_gui)
     gui_thread.start()
     traffic_thread = threading.Thread(target=start_traffic_capture)

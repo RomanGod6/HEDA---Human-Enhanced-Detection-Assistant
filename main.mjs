@@ -112,7 +112,7 @@ const db = new sqlite3.Database(dbPath);
 ipcMain.handle('fetch-firewall-stats', async (event) => {
     return new Promise((resolve, reject) => {
         db.serialize(() => {
-            db.get('SELECT COUNT(*) AS totalPackets, SUM(malicious) AS maliciousPackets FROM firewall_logs', [], (err, row) => {
+            db.all('SELECT src_ip, dst_ip, COUNT(*) AS totalPackets, SUM(malicious) AS maliciousPackets FROM firewall_logs GROUP BY src_ip, dst_ip', [], (err, rows) => {
                 if (err) {
                     console.error('Database error:', err);
                     reject(err);
@@ -120,12 +120,17 @@ ipcMain.handle('fetch-firewall-stats', async (event) => {
                 }
 
                 const stats = {
-                    totalPackets: row.totalPackets,
-                    maliciousPackets: row.maliciousPackets,
+                    totalPackets: 0,
+                    maliciousPackets: 0,
                     topSourceIPs: [],
                     topDestinationIPs: [],
                     protocolDistribution: [],
                 };
+
+                rows.forEach(row => {
+                    stats.totalPackets += row.totalPackets;
+                    stats.maliciousPackets += row.maliciousPackets;
+                });
 
                 db.all('SELECT src_ip AS ip, COUNT(*) AS count FROM firewall_logs GROUP BY src_ip ORDER BY count DESC LIMIT 10', [], (err, rows) => {
                     if (err) {
@@ -159,6 +164,7 @@ ipcMain.handle('fetch-firewall-stats', async (event) => {
         });
     });
 });
+
 
 ipcMain.handle('fetch-notifications', async (event) => {
     return new Promise((resolve, reject) => {
@@ -217,15 +223,16 @@ ipcMain.handle('fetch-packet-logs', async (event, { page, pageSize, search, sear
     const searchCondition = search ? `WHERE ${searchColumns.map(col => `${col} LIKE '%${search}%'`).join(' OR ')}` : '';
 
     const logsQuery = `
-      SELECT id, src_ip, dst_ip, protocol, malicious, confidence, timestamp
+      SELECT src_ip, dst_ip, protocol, COUNT(*) AS packetCount, SUM(malicious) AS maliciousPackets, MIN(timestamp) AS firstSeen, MAX(timestamp) AS lastSeen
       FROM firewall_logs
       ${searchCondition}
-      ORDER BY id DESC
+      GROUP BY src_ip, dst_ip, protocol
+      ORDER BY lastSeen DESC
       LIMIT ${pageSize} OFFSET ${offset}
     `;
 
     const countQuery = `
-      SELECT COUNT(*) as total
+      SELECT COUNT(DISTINCT src_ip, dst_ip, protocol) as total
       FROM firewall_logs
       ${searchCondition}
     `;
@@ -252,6 +259,7 @@ ipcMain.handle('fetch-packet-logs', async (event, { page, pageSize, search, sear
 
     return { logs, total };
 });
+
 
 ipcMain.handle('fetch-security-actions', (event) => {
     return new Promise((resolve, reject) => {

@@ -1,0 +1,7 @@
+joblib
+pandas
+scapy
+tensorflow
+numpy
+unittest
+mock
