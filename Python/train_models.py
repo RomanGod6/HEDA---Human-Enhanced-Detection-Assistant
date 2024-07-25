@@ -20,13 +20,20 @@ column_names = [
     "attack_cat", "Label"
 ]
 
-# Load the dataset without headers and set the column names
-data_df = pd.read_csv(
+# List of CSV file paths
+csv_files = [
     'C:\\Users\\griff\\OneDrive\\Desktop\\HEDA Modules\\UNSW_NB15\\UNSW-NB15_1.csv',
-    header=None,
-    names=column_names,
-    low_memory=False
-)
+    'C:\\Users\\griff\\OneDrive\\Desktop\\HEDA Modules\\UNSW_NB15\\UNSW-NB15_2.csv',
+    'C:\\Users\\griff\\OneDrive\\Desktop\\HEDA Modules\\UNSW_NB15\\UNSW-NB15_3.csv',
+    'C:\\Users\\griff\\OneDrive\\Desktop\\HEDA Modules\\UNSW_NB15\\UNSW-NB15_4.csv'
+]
+
+# Load and concatenate the datasets
+data_frames = []
+for file in csv_files:
+    df = pd.read_csv(file, header=None, names=column_names, low_memory=False)
+    data_frames.append(df)
+data_df = pd.concat(data_frames, ignore_index=True)
 
 # Convert non-numeric columns that should be numeric to numeric, replacing non-convertible values with NaN
 data_df['sport'] = pd.to_numeric(data_df['sport'], errors='coerce')
@@ -78,6 +85,9 @@ model = Sequential([
     Dense(1, activation='sigmoid')  # Assuming binary classification (normal/anomaly)
 ])
 
+# Print the model summary to see the number of parameters
+model.summary()
+
 # Compile the model with optimizer, loss function, and metrics
 model.compile(optimizer='adam',
               loss='binary_crossentropy',
@@ -94,7 +104,7 @@ print(f'Test accuracy: {test_acc}')
 model.save('C:\\Users\\griff\\source\\repos\\HEDA---Human-Enhanced-Detection-Assistant\\Python\\Models\\deep_learning_model.h5')
 
 # Make predictions on the test set
-predictions = (model.predict(X_test) > 0.5).astype(int)
+predictions = (model.predict(X_test) > 0.8).astype(int)
 
 # Generate a classification report
 report = classification_report(y_test, predictions, target_names=['Normal', 'Attack'])

@@ -5,7 +5,7 @@ import App from './App';
 import { AuthProvider } from './AuthContext';
 import './css/style.css';
 import './css/satoshi.css';
-import 'jsvectormap/dist/css/jsvectormap.css';
+import 'jsvectormap/dist/jsvectormap.css';
 import 'flatpickr/dist/flatpickr.min.css';
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
